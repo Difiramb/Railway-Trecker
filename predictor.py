@@ -21,10 +21,47 @@ class Predictor:
         self.ttl_min = int(config["prediction"]["report_ttl_min"])
         self.yandex = YandexTrafficProvider(config.get("yandex", {}))
 
-        with open(schedule_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        self.schedule = data["schedule"]
-        self.peaks = data.get("peaks", [])
+        try:
+            with open(schedule_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            self.schedule = data["schedule"]
+            self.peaks = data.get("peaks", [])
+            print(f"[predictor] schedule loaded from {schedule_path}", flush=True)
+        except FileNotFoundError:
+            print(
+                f"[predictor] WARNING: {schedule_path} not found, using built-in defaults",
+                flush=True,
+            )
+            self.schedule = [
+                {"id": "night", "start": "03:00", "end": "04:00",
+                 "duration_min": [10, 20], "probability": 0.85},
+                {"id": "morning", "start": "07:30", "end": "08:10",
+                 "duration_min": [10, 20], "probability": 0.85},
+                {"id": "noon", "start": "12:00", "end": "13:00",
+                 "duration_min": [15, 30], "probability": 0.75},
+                {"id": "every2h_14", "start": "14:00", "end": "15:00",
+                 "duration_min": [10, 40], "probability": 0.65},
+                {"id": "every2h_16", "start": "16:00", "end": "17:00",
+                 "duration_min": [10, 40], "probability": 0.65},
+                {"id": "every2h_18", "start": "18:00", "end": "19:00",
+                 "duration_min": [10, 40], "probability": 0.65},
+                {"id": "evening", "start": "21:00", "end": "21:40",
+                 "duration_min": [10, 20], "probability": 0.75},
+            ]
+            self.peaks = [
+                {"id": "peak_0700", "time": "07:00", "window_min": 5,
+                 "duration_min": [10, 20], "probability": 0.55},
+                {"id": "peak_0845", "time": "08:45", "window_min": 5,
+                 "duration_min": [10, 20], "probability": 0.55},
+                {"id": "peak_1000", "time": "10:00", "window_min": 5,
+                 "duration_min": [10, 25], "probability": 0.55},
+                {"id": "peak_1400", "time": "14:00", "window_min": 5,
+                 "duration_min": [10, 40], "probability": 0.55},
+                {"id": "peak_1700", "time": "17:00", "window_min": 5,
+                 "duration_min": [10, 40], "probability": 0.55},
+                {"id": "peak_1900", "time": "19:00", "window_min": 5,
+                 "duration_min": [10, 20], "probability": 0.55},
+            ]
 
     def predict(self, now: datetime | None = None, use_yandex: bool = True) -> Prediction:
         now = now or datetime.now(self.tz)
