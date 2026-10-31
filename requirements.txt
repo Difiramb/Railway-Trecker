@@ -1,0 +1,4 @@
+PyYAML>=6.0
+requests>=2.31
+vk-api>=11.9
+python-dotenv>=1.0
