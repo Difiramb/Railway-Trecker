@@ -30,3 +30,5 @@ yandex:
 vk:
   token_env: "VK_TOKEN"
   group_id: 242810724      # ← вставьте ваш числовой ID сообщества
+
+schedule_source_url: "https://raw.githubusercontent.com/Difiramb/Railway-Trecker/main/data/crossing_schedule.yaml"
