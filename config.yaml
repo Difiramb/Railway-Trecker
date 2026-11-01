@@ -2,33 +2,34 @@ timezone: Europe/Moscow
 
 crossing:
   name: "Ефремов, ж/д переезд"
-  # УТОЧНИТЕ ТОЧНЫЕ КООРДИНАТЫ ПЕРЕЕЗДА
   lat: 53.141
   lon: 38.092
 
 database: "data/crossing.db"
 schedule_path: "data/crossing_schedule.yaml"
+plausibility_path: "data/plausibility.yaml"
+
+schedule_source_url: "https://raw.githubusercontent.com/Difiramb/Railway-Trecker/main/data/crossing_schedule.yaml"
+plausibility_source_url: "https://raw.githubusercontent.com/Difiramb/Railway-Trecker/main/data/plausibility.yaml"
 
 prediction:
-  closed_threshold: 0.65   # P >= 0.65 => "закрыт"
-  open_threshold: 0.35     # P <= 0.35 => "открыт"
-  report_ttl_min: 90       # насколько минуты считаем свежими
+  closed_threshold: 0.65
+  open_threshold: 0.35
+  report_ttl_min: 90
   weights:
     user_closed: 1.0
     user_open: 1.0
     yandex: 0.8
     schedule: 0.4
-    peak: 0.35             # вспомогательный сигнал, ниже schedule
+    peak: 0.35
 
 yandex:
   enabled: false
-  endpoint: ""             # легальный endpoint, если появится
+  endpoint: ""
   api_key_env: "YANDEX_API_KEY"
   jam_threshold_m: 150
   jam_length_to_wait_min_per_100m: 0.7
 
 vk:
   token_env: "VK_TOKEN"
-  group_id: 242810724      # ← вставьте ваш числовой ID сообщества
-
-schedule_source_url: "https://raw.githubusercontent.com/Difiramb/Railway-Trecker/main/data/crossing_schedule.yaml"
+  group_id: 242810724
