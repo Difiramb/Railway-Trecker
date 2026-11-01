@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import vk_api
+from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.longpoll import VkEventType, VkLongPoll
 
 from db import Database
@@ -30,6 +31,19 @@ def make_user_hash(user_id: int) -> str:
     return hashlib.sha256(raw).hexdigest()[:16]
 
 
+def build_main_keyboard() -> VkKeyboard:
+    """Постоянная клавиатура с основными действиями."""
+    kb = VkKeyboard(one_time=False)
+
+    kb.add_button("Статус", color=VkKeyboardColor.PRIMARY)
+    kb.add_button("Помощь", color=VkKeyboardColor.SECONDARY)
+    kb.add_line()
+    kb.add_button("Закрыт", color=VkKeyboardColor.NEGATIVE)
+    kb.add_button("Открыт", color=VkKeyboardColor.POSITIVE)
+
+    return kb
+
+
 class CrossingVKBot:
     def __init__(self, config: dict, db: Database, predictor: Predictor):
         token = os.getenv(config["vk"]["token_env"])
@@ -47,6 +61,7 @@ class CrossingVKBot:
         self.plausibility = PlausibilityFilter(
             config.get("plausibility_path", "data/plausibility.yaml")
         )
+        self.keyboard = build_main_keyboard()
 
         self.vk_session = vk_api.VkApi(token=token)
         self.vk = self.vk_session.get_api()
@@ -70,6 +85,7 @@ class CrossingVKBot:
             user_id=user_id,
             message=text,
             random_id=random.randint(1, 2**31 - 1),
+            keyboard=self.keyboard.get_keyboard(),
         )
 
     def _record(self, user_id: int, status: str, wait_min: int | None, now, now_utc) -> float:
