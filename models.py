@@ -15,12 +15,14 @@ class Observation:
     jam_level: Optional[int] = None
     raw: Optional[dict] = None
     user_hash: Optional[str] = None
-    plausibility: float = 1.0     # ← новое поле
+    plausibility: float = 1.0
+    train_type: Optional[str] = None   # passenger / freight / technical
+    track: Optional[int] = None        # 1/2/3 — только для будущего анализа
 
 
 @dataclass
 class Prediction:
-    status: str                  # closed / open / unknown
+    status: str
     p_closed: float
     expected_wait_min: Optional[int]
     expected_open_at: Optional[datetime]
