@@ -9,7 +9,7 @@ DEFAULTS = {
     "notify_user": False,
     "rules": {
         "flood": {"enabled": True, "window_min": 10, "threshold_count": 5, "weight": 0.6},
-        "contradiction": {"enabled": True, "window_min": 2, "weight": 0.6},
+        "flip_flop": {"enabled": True, "window_min": 3, "min_flips": 2, "weight": 0.6},
         "wait_regression": {"enabled": True, "window_min": 60, "weight": 0.4},
         "wait_jump": {"enabled": True, "window_min": 30, "tolerance_min": 3, "weight": 0.5},
     },
@@ -73,14 +73,23 @@ class PlausibilityFilter:
                 plausibility *= float(rule.get("weight", 0.6))
                 reasons.append(f"flood({len(recent)+1}/{rule['window_min']}min)")
 
-        rule = self.rules["contradiction"]
+        # Пинг-понг: 2+ переключения closed<->open за короткое окно.
+        # Одиночный переход (open->closed или closed->open) — легитимен,
+        # не штрафуем: переезд реально может закрыться через секунду после проезда.
+        rule = self.rules["flip_flop"]
         if rule.get("enabled") and status in {"closed", "open"}:
-            w = timedelta(minutes=float(rule.get("window_min", 2)))
-            opposite = "open" if status == "closed" else "closed"
-            recent = [h for h in hist if (now - h["ts"]) <= w and h["status"] == opposite]
-            if recent:
+            w = timedelta(minutes=float(rule.get("window_min", 3)))
+            min_flips = int(rule.get("min_flips", 2))
+            recent = sorted(
+                [h for h in hist
+                 if (now - h["ts"]) <= w and h["status"] in ("closed", "open")],
+                key=lambda x: x["ts"],
+            )
+            seq = [h["status"] for h in recent] + [status]
+            flips = sum(1 for i in range(1, len(seq)) if seq[i] != seq[i - 1])
+            if flips >= min_flips:
                 plausibility *= float(rule.get("weight", 0.6))
-                reasons.append(f"contradiction({opposite})")
+                reasons.append(f"flip_flop({flips})")
 
         rule = self.rules["wait_regression"]
         if rule.get("enabled") and status == "closed" and wait_min is not None:
