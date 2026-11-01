@@ -27,10 +27,15 @@ HELP_TEXT = (
     "Нажми «Закрыт» или напиши «закрыт» — если стоишь у переезда.\n"
     "Если уже стоишь какое-то время, добавь минуты: «закрыт 5», «закрыт 15», «закрыт 30».\n"
     "📌 Зачем время: бот поймёт, как давно закрыто, и точнее скажет, сколько ещё ждать. "
-    "Без числа бот считает, что ты только что подъехал — прогноз может завысить ожидание.\n"
+    "Без числа бот считает, что ты только что подъехал.\n"
     "\n"
     "✅ ОТКРЫТ\n"
     "Нажми «Открыт» или напиши «открыт» — если только что проехал.\n"
+    "\n"
+    "🚂 ТИП ПОЕЗДА (необязательно)\n"
+    "Если знаешь, что за поезд — уточни: «закрыт 15 пассажирский», "
+    "«закрыт товарный», «закрыт технический».\n"
+    "Это для внутренней аналитики, в ответе тип не показывается.\n"
     "\n"
     "❓ ИНФО\n"
     "Эта справка. Всегда доступна кнопкой «Инфо».\n"
@@ -49,6 +54,27 @@ HELP_ALIASES = {
 }
 
 
+TRAIN_TYPE_ALIASES = {
+    # passenger
+    "пассажирский": "passenger",
+    "пассажир": "passenger",
+    "пасс": "passenger",
+    "п": "passenger",
+    # freight
+    "товарный": "freight",
+    "товар": "freight",
+    "товарняк": "freight",
+    "грузовой": "freight",
+    "груз": "freight",
+    "т": "freight",
+    # technical
+    "технический": "technical",
+    "технич": "technical",
+    "тех": "technical",
+    "техн": "technical",
+}
+
+
 def make_user_hash(user_id: int) -> str:
     salt = os.getenv("USER_HASH_SALT", "change-me")
     raw = f"{salt}:{user_id}".encode("utf-8")
@@ -56,7 +82,6 @@ def make_user_hash(user_id: int) -> str:
 
 
 def build_main_keyboard() -> VkKeyboard:
-    """Постоянная клавиатура с основными действиями."""
     kb = VkKeyboard(one_time=False)
     kb.add_button("Статус", color=VkKeyboardColor.PRIMARY)
     kb.add_button("Инфо", color=VkKeyboardColor.SECONDARY)
@@ -85,6 +110,11 @@ class CrossingVKBot:
         )
         self.keyboard = build_main_keyboard()
 
+        features = config.get("features", {}) or {}
+        self.allow_train_type = bool(features.get("allow_train_type_input", True))
+        if not self.allow_train_type:
+            print("[bot] train_type input disabled by config", flush=True)
+
         self.vk_session = vk_api.VkApi(token=token)
         self.vk = self.vk_session.get_api()
         self.longpoll = VkLongPoll(self.vk_session, group_id=int(group_id))
@@ -110,7 +140,7 @@ class CrossingVKBot:
             keyboard=self.keyboard.get_keyboard(),
         )
 
-    def _record(self, user_id: int, status: str, wait_min: int | None, now, now_utc) -> float:
+    def _record(self, user_id, status, wait_min, now, now_utc, train_type=None) -> float:
         user_hash = make_user_hash(user_id)
         plausibility, reasons = self.plausibility.score(
             user_hash, status, wait_min, now, self.db
@@ -119,7 +149,8 @@ class CrossingVKBot:
             wait_log = "unknown" if wait_min is None else str(wait_min)
             print(
                 f"[plausibility] user={user_hash[:8]} status={status} "
-                f"wait={wait_log} score={plausibility:.2f} reasons={reasons}",
+                f"wait={wait_log} type={train_type} score={plausibility:.2f} "
+                f"reasons={reasons}",
                 flush=True,
             )
         self.db.add_observation(
@@ -130,6 +161,7 @@ class CrossingVKBot:
                 wait_min=wait_min,
                 user_hash=user_hash,
                 plausibility=plausibility,
+                train_type=train_type,
             )
         )
         return plausibility
@@ -154,10 +186,32 @@ class CrossingVKBot:
             self.send(user_id, "Спасибо! Записал: переезд открыт. ✅")
             return
 
-        m = re.match(r"^/?закрыт(?:\s+(\d+))?\s*$", text)
+        m = re.match(
+            r"^/?закрыт(?:\s+(\d+))?(?:\s+([а-яёa-z]+))?\.?\s*$",
+            text,
+            re.IGNORECASE,
+        )
         if m:
             wait_min = int(m.group(1)) if m.group(1) else None
-            self._record(user_id, "closed", wait_min, now, now_utc)
+            type_word = m.group(2).lower() if m.group(2) else None
+
+            train_type = None
+            if type_word:
+                mapped = TRAIN_TYPE_ALIASES.get(type_word)
+                if mapped is None:
+                    # Слово после «закрыт» не похоже на тип поезда — не рискуем
+                    self.send(user_id, HELP_TEXT)
+                    return
+                if not self.allow_train_type:
+                    print(
+                        f"[bot] train_type input disabled, ignoring '{type_word}'",
+                        flush=True,
+                    )
+                else:
+                    train_type = mapped
+
+            self._record(user_id, "closed", wait_min, now, now_utc, train_type=train_type)
+
             if wait_min is None:
                 self.send(
                     user_id,
@@ -166,7 +220,10 @@ class CrossingVKBot:
                     "например «закрыт 15». Так прогноз будет точнее.",
                 )
             else:
-                self.send(user_id, f"Спасибо! Записал: переезд закрыт, ожидание {wait_min} мин.")
+                self.send(
+                    user_id,
+                    f"Спасибо! Записал: переезд закрыт, ожидание {wait_min} мин.",
+                )
             return
 
         self.send(user_id, HELP_TEXT)
