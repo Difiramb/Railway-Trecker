@@ -72,26 +72,21 @@ class Predictor:
         schedule_item = self._schedule_for(now)
         peak_item = self._peak_for(now)
 
-        # items: (p_closed, weight, estimated_wait_min, source)
         items: list[tuple[float, float, int | None, str]] = []
 
-        # 1. Расписание-приор
         p_schedule = float(schedule_item.get("probability", 0.65)) if schedule_item else 0.05
         items.append((p_schedule, self.weights["schedule"], None, "schedule"))
 
-        # 1a. Пик — дополнительный сигнал поверх расписания, не замена
         if peak_item:
             p_peak = float(peak_item.get("probability", 0.55))
             items.append((p_peak, self.weights.get("peak", 0.35), None, "peak"))
 
-        # 2. Сообщения пользователей
         for obs in observations:
             if obs.source != "user":
                 continue
 
             age_min = max(0.0, (now_utc - obs.ts.astimezone(timezone.utc)).total_seconds() / 60.0)
             decay = math.exp(-age_min / max(1, self.ttl_min))
-
             plaus = getattr(obs, "plausibility", 1.0) or 1.0
 
             if obs.status == "closed":
@@ -102,18 +97,15 @@ class Predictor:
                     med_duration = self._median_duration(now, reference)
                     wait_est = max(0, int(round(med_duration - obs.wait_min)))
                 items.append((1.0, weight, wait_est, "user_closed"))
-
             elif obs.status == "open":
                 weight = self.weights["user_open"] * decay * plaus
                 items.append((0.0, weight, 0, "user_open"))
 
-        # 3. Яндекс-провайдер, если включён
         yandex_data = None
         if use_yandex and self.yandex.enabled:
             try:
                 yandex_data = self.yandex.fetch(
-                    self.cfg["crossing"]["lat"],
-                    self.cfg["crossing"]["lon"],
+                    self.cfg["crossing"]["lat"], self.cfg["crossing"]["lon"]
                 )
             except Exception:
                 yandex_data = None
@@ -122,20 +114,16 @@ class Predictor:
             jam_len = float(yandex_data.get("jam_length_m") or 0)
             threshold = float(self.cfg["yandex"].get("jam_threshold_m", 150))
             p_yandex = 0.85 if jam_len >= threshold else 0.15
-
             wait_yandex = None
             if jam_len > 0:
                 k = float(self.cfg["yandex"].get("jam_length_to_wait_min_per_100m", 0.7))
                 wait_yandex = int(round(jam_len / 100.0 * k))
-
             items.append((p_yandex, self.weights["yandex"], wait_yandex, "yandex"))
 
-        # Комбинируем вероятность
         total_weight = sum(w for _, w, _, _ in items)
         p_closed = (
             sum(p * w for p, w, _, _ in items) / total_weight
-            if total_weight > 0
-            else 0.5
+            if total_weight > 0 else 0.5
         )
 
         if p_closed >= self.closed_threshold:
@@ -147,7 +135,6 @@ class Predictor:
 
         waits = [w for _, _, w, _ in items if w is not None]
         expected_wait = int(round(median(waits))) if waits else None
-
         if status == "closed" and expected_wait is None:
             fallback = schedule_item or peak_item
             expected_wait = int(round(self._median_duration(now, fallback)))
@@ -156,7 +143,6 @@ class Predictor:
         if status == "closed" and expected_wait is not None:
             expected_open_at = now + timedelta(minutes=expected_wait)
 
-        # confidence: согласованность источников + объём данных
         p_values = [p for p, _, _, _ in items]
         spread = max(p_values) - min(p_values) if len(p_values) > 1 else 0.0
         agreement = 1.0 - spread
@@ -185,31 +171,30 @@ class Predictor:
 
     def format_reply(self, pred: Prediction, now: datetime | None = None) -> str:
         now = now or datetime.now(self.tz)
+        lines = []
 
         if pred.status == "closed":
-            text = f"🔴 Переезд вероятно закрыт. P(закрыт) = {pred.p_closed:.0%}."
+            lines.append("🔴 Похоже, переезд сейчас ЗАКРЫТ.")
             if pred.expected_wait_min is not None:
-                text += f" Ожидание ≈ {pred.expected_wait_min} мин."
+                lines.append(f"⏳ Ждать примерно: {pred.expected_wait_min} мин.")
             if pred.expected_open_at is not None:
-                text += f" Откроется около {pred.expected_open_at.strftime('%H:%M')}."
+                lines.append(f"🕐 Откроется около: {pred.expected_open_at.strftime('%H:%M')}.")
         elif pred.status == "open":
-            text = f"🟢 Переезд вероятно открыт. P(закрыт) = {pred.p_closed:.0%}."
-            next_window = self._next_window(now)
-            if next_window:
-                start_dt, item = next_window
-                text += (
-                    f" Следующее вероятное окно: "
-                    f"{item['start']}–{item['end']}."
-                )
+            lines.append("🟢 Похоже, переезд сейчас ОТКРЫТ.")
         else:
-            text = (
-                f"🟡 Недостаточно данных. P(закрыт) = {pred.p_closed:.0%}. "
-                "Лучше ориентироваться на свежие сообщения."
-            )
+            lines.append("🟡 Пока непонятно — закрыт переезд или открыт.")
+            lines.append("💡 Лучше дождаться свежих сообщений от других водителей.")
 
-        text += f"\nУверенность: {pred.confidence:.0%}."
-        text += "\nСообщите: «закрыт 15» или «открыт»."
-        return text
+        lines.append(f"📊 Уверенность: {pred.confidence:.0%}.")
+
+        next_closure = self._format_next_closure(now)
+        if next_closure:
+            lines.append("")
+            lines.append(next_closure)
+
+        lines.append("")
+        lines.append("Если вы сейчас у переезда — сообщите: «закрыт 15» или «открыт».")
+        return "\n".join(lines)
 
     def _schedule_for(self, now: datetime) -> dict | None:
         current = now.time()
@@ -221,7 +206,6 @@ class Predictor:
         return None
 
     def _peak_for(self, now: datetime) -> dict | None:
-        """Возвращает активный пик, если now попадает в его окно ±window_min."""
         for peak in self.peaks:
             center = time.fromisoformat(peak["time"])
             window = int(peak.get("window_min", 5))
@@ -231,15 +215,50 @@ class Predictor:
                 return peak
         return None
 
-    def _next_window(self, now: datetime) -> tuple[datetime, dict] | None:
+    def _next_closure(self, now: datetime):
+        """Ближайшее закрытие строго в будущем. Учитывает и окна, и пики."""
         candidates = []
+
+        for peak in self.peaks:
+            center = time.fromisoformat(peak["time"])
+            dt = datetime.combine(now.date(), center, tzinfo=self.tz)
+            if dt <= now:
+                dt += timedelta(days=1)
+            candidates.append((dt, peak))
+
         for item in self.schedule:
             start = time.fromisoformat(item["start"])
-            start_dt = datetime.combine(now.date(), start, tzinfo=self.tz)
-            if start_dt <= now:
-                start_dt += timedelta(days=1)
-            candidates.append((start_dt, item))
-        return min(candidates, key=lambda x: x[0]) if candidates else None
+            dt = datetime.combine(now.date(), start, tzinfo=self.tz)
+            if dt <= now:
+                dt += timedelta(days=1)
+            candidates.append((dt, item))
+
+        if not candidates:
+            return None
+        return min(candidates, key=lambda x: x[0])
+
+    def _format_next_closure(self, now: datetime) -> str | None:
+        nxt = self._next_closure(now)
+        if not nxt:
+            return None
+        dt, item = nxt
+
+        delta_days = (dt.date() - now.date()).days
+        hhmm = dt.strftime("%H:%M")
+        if delta_days == 0:
+            when = f"сегодня около {hhmm}"
+        elif delta_days == 1:
+            when = f"завтра около {hhmm}"
+        else:
+            when = f"{dt.strftime('%d.%m')} около {hhmm}"
+
+        dur_txt = ""
+        dur = item.get("duration_min")
+        if dur and len(dur) == 2:
+            a, b = int(dur[0]), int(dur[1])
+            dur_txt = f" (обычно {a} мин)" if a == b else f" (обычно {a}–{b} мин)"
+
+        return f"📅 Следующее закрытие: {when}{dur_txt}."
 
     @staticmethod
     def _median_duration(now: datetime, schedule_item: dict | None) -> float:
