@@ -15,6 +15,7 @@ class Observation:
     jam_level: Optional[int] = None
     raw: Optional[dict] = None
     user_hash: Optional[str] = None
+    plausibility: float = 1.0     # ← новое поле
 
 
 @dataclass
