@@ -92,8 +92,10 @@ class Predictor:
             age_min = max(0.0, (now_utc - obs.ts.astimezone(timezone.utc)).total_seconds() / 60.0)
             decay = math.exp(-age_min / max(1, self.ttl_min))
 
+            plaus = getattr(obs, "plausibility", 1.0) or 1.0
+
             if obs.status == "closed":
-                weight = self.weights["user_closed"] * decay
+                weight = self.weights["user_closed"] * decay * plaus
                 wait_est = None
                 if obs.wait_min is not None:
                     reference = schedule_item or peak_item
@@ -102,7 +104,7 @@ class Predictor:
                 items.append((1.0, weight, wait_est, "user_closed"))
 
             elif obs.status == "open":
-                weight = self.weights["user_open"] * decay
+                weight = self.weights["user_open"] * decay * plaus
                 items.append((0.0, weight, 0, "user_open"))
 
         # 3. Яндекс-провайдер, если включён
