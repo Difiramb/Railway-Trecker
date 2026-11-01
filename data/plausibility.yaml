@@ -1,19 +1,18 @@
-# Фильтр правдоподобности. Не блокирует — только понижает вес.
 enabled: true
-notify_user: false          # true — бот будет мягко намекать на сомнения
+notify_user: false
 
 rules:
   flood:
     enabled: true
     window_min: 10
-    threshold_count: 5       # 5+ сообщений за 10 мин => 5-е и следующие весят меньше
+    threshold_count: 5
     weight: 0.6
 
   flip_flop:
     enabled: true
-    window_min: 3          # окно, в котором считаем переключения
-    min_flips: 2           # 1 переход = легитимно, 2+ = пинг-понг
-    weight: 0.6            # множитель веса при пинг-понге
+    window_min: 3
+    min_flips: 2
+    weight: 0.6
 
   wait_regression:
     enabled: true
@@ -23,11 +22,11 @@ rules:
   wait_jump:
     enabled: true
     window_min: 30
-    tolerance_min: 3         # сколько минут погрешности допускаем
+    tolerance_min: 3
     weight: 0.5
 
 global_rate:
   enabled: true
   window_min: 60
-  soft_limit: 15             # до 15 сообщений в час — без штрафа
-  min_weight: 0.2            # ниже не опускаемся
+  soft_limit: 15
+  min_weight: 0.2
