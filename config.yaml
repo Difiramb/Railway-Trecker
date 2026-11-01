@@ -4,6 +4,16 @@ crossing:
   name: "Ефремов, ж/д переезд"
   lat: 53.141
   lon: 38.092
+  # Схема путей — только для будущего анализа, из сообщений пользователей не собирается.
+  # 1-й и 2-й пути: пассажирские и грузовые.
+  # 3-й путь: технические и грузовые.
+  tracks:
+    - id: 1
+      allowed_types: ["passenger", "freight"]
+    - id: 2
+      allowed_types: ["passenger", "freight"]
+    - id: 3
+      allowed_types: ["technical", "freight"]
 
 database: "data/crossing.db"
 schedule_path: "data/crossing_schedule.yaml"
@@ -18,11 +28,14 @@ prediction:
   report_ttl_min: 90
   weights:
     user_closed: 1.0
-    user_closed_unknown_wait: 0.7   # «закрыт» без числа весит меньше — меньше уверенности
+    user_closed_unknown_wait: 0.7
     user_open: 1.0
     yandex: 0.8
     schedule: 0.4
     peak: 0.35
+
+features:
+  allow_train_type_input: true
 
 yandex:
   enabled: false
