@@ -74,8 +74,7 @@ class PlausibilityFilter:
                 reasons.append(f"flood({len(recent)+1}/{rule['window_min']}min)")
 
         # Пинг-понг: 2+ переключения closed<->open за короткое окно.
-        # Одиночный переход (open->closed или closed->open) — легитимен,
-        # не штрафуем: переезд реально может закрыться через секунду после проезда.
+        # Одиночный переход (open->closed или closed->open) — легитимен.
         rule = self.rules["flip_flop"]
         if rule.get("enabled") and status in {"closed", "open"}:
             w = timedelta(minutes=float(rule.get("window_min", 3)))
@@ -96,11 +95,9 @@ class PlausibilityFilter:
             w = timedelta(minutes=int(rule.get("window_min", 60)))
             prev = [h for h in hist if (now - h["ts"]) <= w
                     and h["status"] == "closed" and h["wait_min"] is not None]
-            if prev:
-                last_wait = prev[0]["wait_min"]
-                if wait_min < last_wait - 1:
-                    plausibility *= float(rule.get("weight", 0.4))
-                    reasons.append(f"wait_regression({last_wait}->{wait_min})")
+            if prev and wait_min < prev[0]["wait_min"] - 1:
+                plausibility *= float(rule.get("weight", 0.4))
+                reasons.append(f"wait_regression({prev[0]['wait_min']}->{wait_min})")
 
         rule = self.rules["wait_jump"]
         if rule.get("enabled") and status == "closed" and wait_min is not None:
@@ -124,8 +121,7 @@ class PlausibilityFilter:
             n = len(recent) + 1
             if n > soft:
                 t = min(1.0, (n - soft) / float(soft))
-                factor = 1.0 - (1.0 - min_w) * t
-                plausibility *= factor
+                plausibility *= 1.0 - (1.0 - min_w) * t
                 reasons.append(f"rate({n}/{rule['window_min']}min)")
 
         plausibility = max(0.0, min(1.0, plausibility))
