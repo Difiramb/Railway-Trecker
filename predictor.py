@@ -90,12 +90,15 @@ class Predictor:
             plaus = getattr(obs, "plausibility", 1.0) or 1.0
 
             if obs.status == "closed":
-                weight = self.weights["user_closed"] * decay * plaus
-                wait_est = None
                 if obs.wait_min is not None:
+                    base_w = self.weights["user_closed"]
                     reference = schedule_item or peak_item
                     med_duration = self._median_duration(now, reference)
                     wait_est = max(0, int(round(med_duration - obs.wait_min)))
+                else:
+                    base_w = self.weights.get("user_closed_unknown_wait", 0.7)
+                    wait_est = None
+                weight = base_w * decay * plaus
                 items.append((1.0, weight, wait_est, "user_closed"))
             elif obs.status == "open":
                 weight = self.weights["user_open"] * decay * plaus
