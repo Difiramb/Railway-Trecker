@@ -46,6 +46,15 @@ class Database:
             );
             """
         )
+
+        # Миграция: добавляем колонку, если её ещё нет
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(observations)").fetchall()}
+        if "plausibility" not in cols:
+            self.conn.execute(
+                "ALTER TABLE observations ADD COLUMN plausibility REAL DEFAULT 1.0"
+            )
+            print("[db] migration: added plausibility column", flush=True)
+
         self.conn.commit()
 
     def add_observation(self, obs: Observation) -> None:
@@ -53,8 +62,8 @@ class Database:
             """
             INSERT INTO observations (
                 ts_utc, source, status, wait_min, lat, lon,
-                jam_length_m, jam_level, raw_json, user_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                jam_length_m, jam_level, raw_json, user_hash, plausibility
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 obs.ts.astimezone(timezone.utc).isoformat(),
@@ -67,6 +76,7 @@ class Database:
                 obs.jam_level,
                 json.dumps(obs.raw, ensure_ascii=False) if obs.raw else None,
                 obs.user_hash,
+                obs.plausibility,
             ),
         )
         self.conn.commit()
@@ -107,6 +117,7 @@ class Database:
 
     @staticmethod
     def _row_to_observation(row: sqlite3.Row) -> Observation:
+        keys = row.keys()
         return Observation(
             ts=datetime.fromisoformat(row["ts_utc"]),
             source=row["source"],
@@ -118,4 +129,5 @@ class Database:
             jam_level=row["jam_level"],
             raw=json.loads(row["raw_json"]) if row["raw_json"] else None,
             user_hash=row["user_hash"],
+            plausibility=row["plausibility"] if "plausibility" in keys and row["plausibility"] is not None else 1.0,
         )
