@@ -47,13 +47,16 @@ class Database:
             """
         )
 
-        # Миграция: добавляем колонку, если её ещё нет
-        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(observations)").fetchall()}
-        if "plausibility" not in cols:
-            self.conn.execute(
-                "ALTER TABLE observations ADD COLUMN plausibility REAL DEFAULT 1.0"
-            )
-            print("[db] migration: added plausibility column", flush=True)
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(observations)")}
+        migrations = [
+            ("plausibility", "REAL DEFAULT 1.0"),
+            ("train_type", "TEXT"),
+            ("track", "INTEGER"),
+        ]
+        for col, ddl in migrations:
+            if col not in cols:
+                self.conn.execute(f"ALTER TABLE observations ADD COLUMN {col} {ddl}")
+                print(f"[db] migration: added {col} column", flush=True)
 
         self.conn.commit()
 
@@ -62,8 +65,9 @@ class Database:
             """
             INSERT INTO observations (
                 ts_utc, source, status, wait_min, lat, lon,
-                jam_length_m, jam_level, raw_json, user_hash, plausibility
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                jam_length_m, jam_level, raw_json, user_hash, plausibility,
+                train_type, track
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 obs.ts.astimezone(timezone.utc).isoformat(),
@@ -77,6 +81,8 @@ class Database:
                 json.dumps(obs.raw, ensure_ascii=False) if obs.raw else None,
                 obs.user_hash,
                 obs.plausibility,
+                obs.train_type,
+                obs.track,
             ),
         )
         self.conn.commit()
@@ -129,5 +135,8 @@ class Database:
             jam_level=row["jam_level"],
             raw=json.loads(row["raw_json"]) if row["raw_json"] else None,
             user_hash=row["user_hash"],
-            plausibility=row["plausibility"] if "plausibility" in keys and row["plausibility"] is not None else 1.0,
+            plausibility=row["plausibility"]
+            if "plausibility" in keys and row["plausibility"] is not None else 1.0,
+            train_type=row["train_type"] if "train_type" in keys else None,
+            track=row["track"] if "track" in keys else None,
         )
