@@ -1,0 +1,32 @@
+# Фильтр правдоподобности. Не блокирует — только понижает вес.
+enabled: true
+notify_user: false          # true — бот будет мягко намекать на сомнения
+
+rules:
+  flood:
+    enabled: true
+    window_min: 10
+    threshold_count: 5       # 5+ сообщений за 10 мин => 5-е и следующие весят меньше
+    weight: 0.6
+
+  contradiction:
+    enabled: true
+    window_min: 2
+    weight: 0.6
+
+  wait_regression:
+    enabled: true
+    window_min: 60
+    weight: 0.4
+
+  wait_jump:
+    enabled: true
+    window_min: 30
+    tolerance_min: 3         # сколько минут погрешности допускаем
+    weight: 0.5
+
+global_rate:
+  enabled: true
+  window_min: 60
+  soft_limit: 15             # до 15 сообщений в час — без штрафа
+  min_weight: 0.2            # ниже не опускаемся
