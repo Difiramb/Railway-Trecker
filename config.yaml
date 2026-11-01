@@ -18,6 +18,7 @@ prediction:
   report_ttl_min: 90
   weights:
     user_closed: 1.0
+    user_closed_unknown_wait: 0.7   # «закрыт» без числа весит меньше — меньше уверенности
     user_open: 1.0
     yandex: 0.8
     schedule: 0.4
