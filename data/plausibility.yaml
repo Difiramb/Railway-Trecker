@@ -9,10 +9,11 @@ rules:
     threshold_count: 5       # 5+ сообщений за 10 мин => 5-е и следующие весят меньше
     weight: 0.6
 
-  contradiction:
+  flip_flop:
     enabled: true
-    window_min: 2
-    weight: 0.6
+    window_min: 3          # окно, в котором считаем переключения
+    min_flips: 2           # 1 переход = легитимно, 2+ = пинг-понг
+    weight: 0.6            # множитель веса при пинг-понге
 
   wait_regression:
     enabled: true
