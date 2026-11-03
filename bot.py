@@ -13,6 +13,7 @@ from db import Database
 from models import Observation
 from plausibility import PlausibilityFilter
 from predictor import Predictor
+from rate_limiter import RateLimiter, send_with_retry
 
 
 HELP_TEXT = (
@@ -109,6 +110,14 @@ class CrossingVKBot:
             config.get("plausibility_path", "data/plausibility.yaml")
         )
         self.keyboard = build_main_keyboard()
+        rl_cfg = config.get("rate_limit", {}) or {}
+        self.rate_limiter = RateLimiter(
+            incoming_max=int(rl_cfg.get("incoming_max", 3)),
+            incoming_window_sec=float(rl_cfg.get("incoming_window_sec", 10)),
+            outgoing_rate_per_sec=float(rl_cfg.get("outgoing_rate_per_sec", 18)),
+            outgoing_burst=int(rl_cfg.get("outgoing_burst", 25)),
+        )
+        
 
         features = config.get("features", {}) or {}
         self.allow_train_type = bool(features.get("allow_train_type_input", True))
