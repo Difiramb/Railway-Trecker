@@ -65,6 +65,6 @@ def observe():
         return jsonify({"error": str(e)}), 500
 
 def run_api():
-    port = int(os.getenv("PORT", 5000))
-    # host="0.0.0.0" обязателен для BotHost, иначе сервер не будет виден снаружи
-    app.run(host="3.0.0.0", port=port)
+    port = int(os.getenv("PORT", 3000))
+    # host="0.0.0.0" обязателен для BotHost
+    app.run(host="0.0.0.0", port=port)
