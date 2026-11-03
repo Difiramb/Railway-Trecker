@@ -132,6 +132,13 @@ class CrossingVKBot:
         print(f"Бот запущен, слушаю сообщество id={self.config['vk']['group_id']}", flush=True)
         for event in self.longpoll.listen():
             if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                if not self.rate_limiter.allow_incoming(event.user_id):
+                    print(
+                        f"[rate] drop incoming from user={event.user_id} "
+                        f"(too many messages)",
+                        flush=True,
+                    )
+                    continue
                 try:
                     self.handle(event.user_id, event.text)
                 except Exception as exc:
@@ -142,12 +149,21 @@ class CrossingVKBot:
                         pass
 
     def send(self, user_id: int, text: str) -> None:
-        self.vk.messages.send(
+        ok = send_with_retry(
+            self.vk,
             user_id=user_id,
             message=text,
             random_id=random.randint(1, 2**31 - 1),
             keyboard=self.keyboard.get_keyboard(),
+            limiter=self.rate_limiter,
+            max_retries=3,
         )
+        if not ok:
+            print(
+                f"[rate] outgoing dropped for user={user_id} "
+                f"(limiter timeout or retries exhausted)",
+                flush=True,
+            )
 
     def _record(self, user_id, status, wait_min, now, now_utc, train_type=None) -> float:
         user_hash = make_user_hash(user_id)
