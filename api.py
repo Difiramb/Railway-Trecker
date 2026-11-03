@@ -67,4 +67,4 @@ def observe():
 def run_api():
     port = int(os.getenv("PORT", 5000))
     # host="0.0.0.0" обязателен для BotHost, иначе сервер не будет виден снаружи
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="3.0.0.0", port=port)
