@@ -1,5 +1,6 @@
 import os
 import sys
+import threading  # <-- Добавлен импорт для потоков
 
 import requests
 import yaml
@@ -12,6 +13,7 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 from bot import CrossingVKBot
 from db import Database
 from predictor import Predictor
+from api import run_api  # <-- Импортируем функцию запуска API
 
 
 def sync_from_github(config: dict, url_key: str, path_key: str) -> None:
@@ -58,6 +60,14 @@ def main() -> None:
     db = Database(config["database"])
     predictor = Predictor(config, db, config["schedule_path"])
     bot = CrossingVKBot(config, db, predictor)
+
+    # --- НОВЫЙ БЛОК: Запуск веб-сервера в фоне ---
+    print("[run] starting API server in background thread...", flush=True)
+    api_thread = threading.Thread(target=run_api, daemon=True)
+    api_thread.start()
+    # ----------------------------------------------
+
+    # Бот запускается в основном потоке и блокирует его (это нормально)
     bot.run()
 
 
