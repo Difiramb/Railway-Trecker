@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # <-- Добавлено
+from flask_cors import CORS
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import yaml
@@ -11,7 +11,7 @@ from predictor import Predictor
 from bot import make_user_hash
 
 app = Flask(__name__)
-CORS(app)  # <-- Разрешаем запросы отовсюду (для Mini Apps это нужно)
+CORS(app)
 
 # Загружаем конфиг
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,7 +26,13 @@ db = Database(config["database"])
 predictor = Predictor(config, db, config["schedule_path"])
 tz = ZoneInfo(config["timezone"])
 
-@app.route('/api/status', methods=['GET'])
+# Корневой маршрут для проверки работоспособности (healthcheck)
+@app.route('/', methods=['GET'])
+def healthcheck():
+    return "API is running", 200
+
+# Эндпоинт для получения статуса (без префикса /api)
+@app.route('/status', methods=['GET'])
 def get_status():
     try:
         now = datetime.now(tz)
@@ -36,7 +42,8 @@ def get_status():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/observe', methods=['POST'])
+# Эндпоинт для отправки наблюдения (без префикса /api)
+@app.route('/observe', methods=['POST'])
 def observe():
     try:
         data = request.json
@@ -66,5 +73,4 @@ def observe():
 
 def run_api():
     port = int(os.getenv("PORT", 3000))
-    # host="0.0.0.0" обязателен для BotHost
     app.run(host="0.0.0.0", port=port)
