@@ -47,3 +47,9 @@ yandex:
 vk:
   token_env: "VK_TOKEN"
   group_id: 242810724
+
+rate_limit:
+  incoming_max: 3           # не больше 3 сообщений от одного user_id
+  incoming_window_sec: 10   # за 10 секунд
+  outgoing_rate_per_sec: 18 # глобально не больше 18 запросов/сек (лимит VK — 20)
+  outgoing_burst: 25        # максимум «всплеск» исходящих
