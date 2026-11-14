@@ -48,6 +48,9 @@ vk:
   token_env: "VK_TOKEN"
   group_id: 242810724
 
+max:
+  token_env: "MAX_BOT_TOKEN"
+
 rate_limit:
   incoming_max: 3           # не больше 3 сообщений от одного user_id
   incoming_window_sec: 10   # за 10 секунд
