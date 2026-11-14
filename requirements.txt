@@ -5,4 +5,4 @@ python-dotenv>=1.0
 tzdata>=2024.1
 Flask>=3.0.0
 flask-cors>=4.0.0
-maxapi-sdk>=0.13.0
+maxapi @ git+https://github.com/max-messenger/max-botapi-python.git
