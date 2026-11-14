@@ -2,5 +2,7 @@ PyYAML>=6.0
 requests>=2.31
 vk-api>=11.9
 python-dotenv>=1.0
+tzdata>=2024.1
 Flask>=3.0.0
 flask-cors>=4.0.0
+maxapi-sdk>=0.13.0
