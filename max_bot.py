@@ -6,8 +6,12 @@ from zoneinfo import ZoneInfo
 
 import yaml
 from maxapi import Bot, Dispatcher
-from maxapi.types import Command, MessageCreated
+try:
+    from maxapi.types import Command  # Для новых версий
+except ImportError:
+    from maxapi.filters.command import Command  # Для версии 0.8.2
 
+from maxapi.types import MessageCreated
 from db import Database
 from models import Observation
 from predictor import Predictor
