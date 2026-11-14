@@ -4,8 +4,8 @@ import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from maxapi import Bot, Dispatcher, Command
-from maxapi.types import MessageCreated
+from maxapi import Bot, Dispatcher
+from maxapi.types import Command, MessageCreated
 
 from db import Database
 from models import Observation
