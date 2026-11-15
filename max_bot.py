@@ -160,14 +160,35 @@ async def cmd_open(event: MessageCreated):
     await event.message.answer("Спасибо! Записал: переезд открыт. ✅")
 
 async def run_max_bot():
-    """Запускает MAX-бота через Long Polling."""
+    """Запускает MAX-бота через Long Polling с диагностикой токена."""
     logger.info("[MAX] Бот запускается...")
+    
+    token = os.getenv("MAX_BOT_TOKEN")
+    if not token:
+        logger.error("[MAX] Переменная MAX_BOT_TOKEN не задана!")
+        return
+    logger.info(f"[MAX] Длина токена: {len(token)} символов")
+    logger.info(f"[MAX] Начало токена: {token[:10]}...")
+
     try:
-        # В версии 0.8.2 метода delete_webhook нет.
-        # Если бот новый и вебхуки не настраивались, polling заработает сразу.
+        # Диагностика: проверяем токен через get_me
+        me = await bot.get_me()
+        logger.info(f"[MAX] Токен принят! Бот: {me.username} (ID: {me.user_id})")
+    except Exception as e:
+        logger.error(f"[MAX] Ошибка проверки токена: {e}")
+        return
+
+    try:
+        # Безопасный вызов delete_webhook: только если метод существует
+        if hasattr(bot, "delete_webhook"):
+            await bot.delete_webhook()
+            logger.info("[MAX] Вебхук удалён (если был).")
+        else:
+            logger.info("[MAX] Метод delete_webhook не найден в этой версии, пропускаем.")
+
         await dp.start_polling(bot)
     except Exception as e:
-        logger.error(f"[MAX] Ошибка при запуске: {e}")
+        logger.error(f"[MAX] Ошибка при запуске polling: {e}")
 
 def start_max_bot_in_thread():
     """Синхронная обёртка для запуска в отдельном потоке."""
