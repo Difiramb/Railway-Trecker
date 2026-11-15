@@ -5,5 +5,5 @@ python-dotenv>=1.0
 tzdata>=2024.1
 Flask>=3.0.0
 flask-cors>=4.0.0
-maxapi==0.8.2
+maxapi>=0.9.5
 aiofiles==24.1.0
