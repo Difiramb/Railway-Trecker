@@ -92,7 +92,7 @@ async def cmd_closed(event: MessageCreated):
             }
             train_type = type_map.get(parts[2])
     
-    # Надёжное получение пользователя (даже если auto_requests=False)
+    # Надёжное получение пользователя
     from_user = event.from_user or await event.fetch_from_user()
     if not from_user:
         await event.message.answer("Не удалось определить пользователя. Попробуйте позже.")
@@ -163,9 +163,8 @@ async def run_max_bot():
     """Запускает MAX-бота через Long Polling."""
     logger.info("[MAX] Бот запускается...")
     try:
-        # Обязательно удаляем вебхук, иначе polling не будет получать события
-        await bot.delete_webhook()
-        logger.info("[MAX] Вебхук удалён, запускаю polling...")
+        # В версии 0.8.2 метода delete_webhook нет.
+        # Если бот новый и вебхуки не настраивались, polling заработает сразу.
         await dp.start_polling(bot)
     except Exception as e:
         logger.error(f"[MAX] Ошибка при запуске: {e}")
